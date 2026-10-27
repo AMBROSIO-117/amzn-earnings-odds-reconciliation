@@ -11,7 +11,7 @@ import requests
 from src.config import CBOE_ENDPOINT, REQUEST_TIMEOUT_SECONDS, SAMPLE_PATH, SYMBOL
 
 
-def _url(as_of: str, api_key: str) -> str:
+def _url(as_of: str) -> str:
     """Build a redacted diagnostic URL; never expose the key in logs."""
     return f"{CBOE_ENDPOINT}?{urlencode({'symbol': SYMBOL, 'date': as_of, 'cboe_api_key': '[REDACTED]'})}"
 
@@ -40,8 +40,8 @@ def load_sample() -> list[dict[str, Any]]:
 def fetch_snapshot(as_of: str, api_key: str, demo_fallback: bool = False) -> list[dict[str, Any]]:
     """Fetch once per attempt, retry one HTTP failure, then optionally demo-fallback."""
     params = {"symbol": SYMBOL, "date": as_of, "cboe_api_key": api_key}
-    diagnostic_url = _url(as_of, api_key)
-    last_error: Exception | None = None
+    diagnostic_url = _url(as_of)
+    last_error_message = "unknown error"
     for attempt in range(2):
         try:
             response = requests.get(CBOE_ENDPOINT, params=params, timeout=REQUEST_TIMEOUT_SECONDS)
@@ -52,13 +52,13 @@ def fetch_snapshot(as_of: str, api_key: str, demo_fallback: bool = False) -> lis
             rows = payload if isinstance(payload, list) else payload.get("data", [])
             return _normalize(rows)
         except (requests.RequestException, ValueError, TypeError, KeyError) as exc:
-            last_error = exc
             status = getattr(getattr(exc, "response", None), "status_code", "unavailable")
             message = str(exc).replace(api_key, "[REDACTED]") if api_key else str(exc)
+            last_error_message = message
             print(f"Cboe request failed at {diagnostic_url} (status {status}): {message}")
             if attempt == 0:
                 time.sleep(1.05)
     if demo_fallback:
         print("Using the synthetic Cboe fixture after the live request failed.")
         return load_sample()
-    raise RuntimeError(f"Cboe request failed after one retry: {last_error}")
+    raise RuntimeError(f"Cboe request failed after one retry: {last_error_message}")

@@ -6,6 +6,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from src.config import OUTPUT_DIR
+
 
 def _fmt(value: Any, style: str = "number") -> str:
     """Format a value without emitting NaN or implementation-specific nulls."""
@@ -30,7 +32,7 @@ def write_reports(as_of: str, event: str, indicators: dict[str, Any], polymarket
     elif result["pred_p_aligned"] is None:
         print("Polymarket market found, but its outcome does not map to higher-close semantics")
     generated = datetime.now(timezone.utc).isoformat(timespec="seconds")
-    out = Path("output")
+    out = Path(OUTPUT_DIR)
     out.mkdir(parents=True, exist_ok=True)
     rows = [
         ("Spot", _fmt(indicators["spot"], "money"), "—"),
